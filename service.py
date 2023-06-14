@@ -1,4 +1,4 @@
-import flask 
+import flask
 import socket
 import time
 import random
