@@ -54,3 +54,21 @@ generate_config(){
     echo "   StrictHostKeyChecking no" >> $sshconfig
     echo "   PasswordAuthentication no ">> $sshconfig
     echo "   ProxyJump $bastion_server" >> $sshconfig
+
+ # generate hosts file
+    echo "[bastion]" >> $hostsfile
+    echo "$bastion_server" >> $hostsfile
+    echo " " >> $hostsfile
+    echo "[HAproxy]" >> $hostsfile
+    echo "$haproxy_server" >> $hostsfile
+    echo "$haproxy_server2" >> $hostsfile
+
+    echo " " >> $hostsfile
+    echo "[primary_proxy]" >> $hostsfile
+    echo "$haproxy_server" >> $hostsfile
+    echo " " >> $hostsfile
+    echo "[backup_proxy]" >> $hostsfile
+    echo "$haproxy_server2" >> $hostsfile
+
+    echo " " >> $hostsfile
+    echo "[webservers]" >> $hostsfile
