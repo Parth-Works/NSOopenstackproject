@@ -206,3 +206,28 @@
         state: restarted 
     
     
+
+    
+- name: Install Node exporter on nodes
+  hosts: webservers
+  gather_facts: yes
+  become: true
+  tasks:
+  
+    - name: gather server ip addresses
+      setup:
+            filter: ansible_default_ipv4.address
+
+    - name : sudo wait
+      become: yes
+      shell: while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done;
+
+    - name: Copr script to server
+      copy:
+        src: "node_exp.sh"
+        dest: "node_exp.sh"
+        mode: '0755'
+    
+    - name: Execute script
+      command: bash node_exp.sh
+  
