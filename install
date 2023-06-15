@@ -89,3 +89,28 @@ then
 else
     echo "$(date) $name_of_the_securitygroup already exists"
 fi
+
+if [[ -f "$sshconfig" ]] ; then
+    rm "$sshconfig"
+fi
+
+if [[ -f "$knownhosts" ]] ; then
+    rm "$knownhosts"
+fi
+
+if [[ -f "$hostsfile" ]] ; then
+    rm "$hostsfile"
+fi
+
+# if [[ -f "$f1" ]] ; then
+#     rm "$f1"
+# fi
+
+# if [[ -f "$f2" ]] ; then
+#     rm "$f2"
+# fi
+
+## Create port for Virtual IP
+vip=$(openstack port create --network "$name_of_the_network" --fixed-ip subnet="$name_of_the_subnet" --no-security-group "$vip_port" )
+
+unassigned_ips=$(openstack floating ip list --status DOWN -f value -c "Floating IP Address")
