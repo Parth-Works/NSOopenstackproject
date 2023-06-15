@@ -39,3 +39,31 @@ if [ -n "$servers" ]; then
 else
   echo "$(date) No servers exist to delete"
 fi
+
+# delete keypair 
+
+# keypairs=$(openstack keypair list -f value -c Name)
+keypairs=$(openstack keypair list -f value -c Name | grep "$tag_name.*")
+# echo "$keypairs"
+
+if [ -n "$keypairs" ]; then
+  for key in $keypairs; do    #deletes all keypairs with same tag
+    openstack keypair delete $key
+  done
+  echo "$(date) Deleted keypair $name_of_the_keypair"
+else
+  echo "$(date) No $name_of_the_keypair exist to delete"
+fi
+
+# delete floating ip
+floating_ip=$(openstack floating ip list --status DOWN -f value -c "Floating IP Address")
+# floating_ip_list=(${existing_floating_ip// / })
+
+if [ -n "$floating_ip" ]; then
+  for fip in $floating_ip; do
+    openstack floating ip delete "$fip"
+  done
+  echo "$(date) Deleted Floating ips"
+else
+  echo "$(date) No floating ips to remove"
+fi
