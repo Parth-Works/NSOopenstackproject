@@ -91,36 +91,68 @@
         src: keepalived.conf.j2
         dest: /etc/keepalived/keepalived.conf
 
-        name: gunicorn
 
-  - name: "install flask"
-    apt:
-        name: python3-flask
+- hosts: backup_proxy
+  become: yes
+  vars:
+    host_name: "{{ inventory_hostname }}"
+    node_state: BACKUP
+    node_priority: 100
+    virtual_ip: "{{ lookup('file', './vipaddr') }}"
+  tasks:
+    - name: configure keepalived
+      template:
+        src: keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+    
+- name: Restart Keepalived
+  hosts: HAproxy
+  become: yes
+  tasks:
+    - name: Ensure Keepalived service is running
+      systemd:
+        name: keepalived
+        enabled: yes
+
+    - name: restart keepalived
+      service:
+        name: keepalived
+        state: restarted
         
-  - name: "install snmpd"
-    apt:
-        name: snmpd
+    - name: start keepalived
+      service:
+        name: keepalived
+        state: started
+
+- hosts: webservers
+  become: yes
+  tasks:
+    - name: install pip
+      apt:
+        name: python3-pip
+        state: present
+    
+    - name: install flask
+      pip:
+        executable: pip3
+        name: flask
         state: latest
-        
-  - name: "Configuring snmpd" 
-    template:
-         src: "./snmpd.conf"
-         dest: "/etc/snmp/snmpd.conf"
-    
-  - name: "restarting snmpd"
-    service:
-         name: snmpd
-         state: restarted
-         enabled: yes
+    - name: install gunicorn
+      pip:
+        executable: pip3
+        name: gunicorn
+        state: latest
 
-  - name: "copying Application2.py"
-    copy:
-        src: application2.py
-        dest: /home/ubuntu/application2.py
+    - name: createnew directory
+      file:
+              path: "/home/flask-app/"
+              state: directory
+
+    - name: copy app.py to webservers
+      template:
+        src: "service.py"
+        dest: "/home/flask-app/app.py"
         
-  - name: "Running Flask app"
-    shell: gunicorn -w 2 -D -b 0.0.0.0:8080 application2:app
-    
     
     
     
