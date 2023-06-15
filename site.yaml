@@ -1,52 +1,53 @@
-
 ---
-- become: yes
-  hosts: webservers 
-  gather_facts: yes
-    
-- hosts: HAproxy
+
+- hosts: all
   gather_facts: yes
   become: yes
-  become_method: sudo
+    
+  tasks:
+    - name: apt update
+      apt:
+        update_cache: true
+
+- name: Configuring HAproxy loadbalancer
+  hosts: HAproxy
+  become: yes
   
   tasks:
-  
-  - name: "update apt cache"
-    become: yes
-    apt:
-        update_cache: true
-        
-  - name: "install HAproxy"
-    apt:
+
+    
+    - name : sudo wait
+      become: yes
+      shell: while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done;
+
+    - name: Installing HAproxy
+      apt:
         name: haproxy
-        state: latest
-        
-  - name: delete previous haproxy configuration 
-    file:
-       path: "/etc/haproxy/haproxy.cfg"
-       state: absent
+        state: present
+        update_cache: true
+      
+    - name: Installing keepalived
+      apt:
+        name: keepalived
+        state: present
+        update_cache: true
 
-  - name: "Deploy new HAproxy"
-    template:
-         src: "./haproxy.cfg.j2"
-         dest: "/etc/haproxy/haproxy.cfg"        
-    notify: "Start HAproxy"
-  
-  - name: "restarting HAproxy"
-    service:
-         name: haproxy
-         state: restarted
-         enabled: yes  
-             
-  - name: "installing Nginx"
-    apt:
-        name: nginx
-        state: latest
+    - name: sudo sysctl -w net.ipv4.ip_nonlocal_bind=1
+      become: yes
+      shell: sysctl -w net.ipv4.ip_nonlocal_bind=1
 
-  - name: "Configuring UDP loadbalancing"  
-    template:
-         src: "./nginx.j2"
-         dest: "/etc/nginx/nginx.conf"
+    - name: gather server ip addresses
+      setup:
+            filter: ansible_default_ipv4.address     
+         
+    
+    - name: copy files haproxy.cfg
+      template:
+        src: haproxy.cfg.j2
+        dest: "/etc/haproxy/haproxy.cfg"
+      notify:
+        - restart haproxy
+
          
   - name: "restarting nginx"
     service:
