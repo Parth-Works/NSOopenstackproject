@@ -35,7 +35,7 @@ if [ -n "$servers" ]; then
   for server_id in $servers; do
     openstack server delete $server_id
   done
-  echo "$(date) Deleted servers"
+  echo "$(date) Deleted servers" 
 else
   echo "$(date) No servers exist to delete"
 fi
@@ -67,3 +67,43 @@ if [ -n "$floating_ip" ]; then
 else
   echo "$(date) No floating ips to remove"
 fi
+
+#detach floating ip from virtual port
+vip_fip=$(openstack floating ip unset --port "$fip2" )
+# unsetfip=$(openstack floating ip unset )
+echo "$(date) Detached floating IP from virtual port"
+
+vip_addr=$(openstack port show "$vip_port" -f value -c fixed_ips | grep -Po '\d+\.\d+\.\d+\.\d+')
+# echo "$(date) Removed virtual IP address $vip_addr"
+echo "$vip_addr" >> vipaddr
+
+
+# Unassign floating IPs
+unassigned_ips=$(openstack floating ip list --port "$vip_port" --status ACTIVE -f value -c "Floating IP Address")
+
+for ip in $unassigned_ips; do
+    openstack floating ip unset --port "$ip"
+    echo "$(date) Unset floating IP $ip from port"
+done
+
+# Delete virtual port
+openstack port delete "$vip_port"
+echo "$(date) Deleted virtual port $vip_port"
+
+
+# Disconnect subnet & remove subnet
+
+# subnet_id=$(openstack router show "$name_of_the_router" -f json -c interfaces_info | grep -oP '(?<="subnet_id": ")[^"]+' | awk '{print $1}')
+
+subnet_id=$(openstack subnet list --tag "$tag_name" -c ID -f value)
+if [ -n "$subnet_id" ]; then
+  for sub in $subnet_id; do
+    openstack router remove subnet "$name_of_the_router" "$sub"
+    openstack subnet delete "$sub"
+  done
+  echo "$(date) Deleted subnet $name_of_the_subnet"
+else
+  echo "$(date) No subnet $name_of_the_subnet to remove"
+fi
+
+# remove_ext_gateway=$(openstack router unset --external-gateway $existing_routers) 
