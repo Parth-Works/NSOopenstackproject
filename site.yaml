@@ -48,48 +48,49 @@
       notify:
         - restart haproxy
 
-         
-  - name: "restarting nginx"
-    service:
-         name: nginx
-         state: restarted
-         
-  handlers:
-  - name: "Start HAproxy"
-    service:
-         name: haproxy
-         state: restarted
-         
-         
-- hosts: webservers
-  become: yes
-  become_method: sudo
-  gather_facts: yes
-  
-  tasks:
-  
-  
-  - name: "update cache"
-    apt:
-        update_cache: true
+    
 
-  - name: "install pip3"
-    apt:
-        name: python3-pip
-        state: present
-        update_cache: true
-        
-  - name: install flask
-    pip: 
-      executable: pip3
-      name: flask
-      state: latest
-    
-  - name: fetch application
-    copy: src=application2.py dest=./application2.py 
-    
-  - name: "install gunicorn"
-    apt:
+    - name: install nginx, snmp, snmp-mibs-downloader
+      apt: 
+        update_cache: yes
+        name: [ 'nginx', 'snmp', 'snmp-mibs-downloader' ] 
+        state: latest
+
+    - name: copy nginx config files
+      template:
+         src: nginx.conf.j2
+         dest: "/etc/nginx/nginx.conf"
+
+    - name: nginx start
+      service:
+        name: nginx
+        state: restarted
+
+  handlers:
+
+    - name: restart haproxy
+      service:
+       name: haproxy
+       state: restarted
+
+    - name: restart keepalived
+      service:
+        name: keepalived
+        state: restarted
+
+- hosts: primary_proxy
+  become: yes
+  vars:
+    host_name: "{{ inventory_hostname }}"
+    node_state: MASTER
+    node_priority: 101
+    virtual_ip: "{{ lookup('file', './vipaddr') }}"
+  tasks:
+    - name: configure keepalived
+      template:
+        src: keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+
         name: gunicorn
 
   - name: "install flask"
