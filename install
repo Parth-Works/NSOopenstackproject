@@ -22,3 +22,25 @@ vip_port="$2_vip" #virtual ip port
 sshconfig="config"
 knownhosts="known_hosts"
 hostsfile="hosts"
+
+# Check if keypair exists
+existing_keypairs=$(openstack keypair list -f value --column Name)
+if echo "$existing_keypairs" | grep -qFx $name_of_the_keypair; then
+    echo "$(date) $name_of_the_keypair already exists"
+else
+    # Create Keypair
+    created_keypair=$(openstack keypair create --public-key $publickey "$name_of_the_keypair" )
+    echo "$(date) Created keypair $name_of_the_keypair"
+fi
+
+
+# Check if network already exists
+existing_networks=$(openstack network list --tag "$tag_name" --column Name -f value)
+
+if echo "$existing_networks" | grep -qFx $name_of_the_network; then
+    echo "$(date) $name_of_the_network already exists"
+else
+    # Create network
+    created_network=$(openstack network create --tag "$tag_name" "$name_of_the_network" -f json)
+    echo "$(date) Created network $name_of_the_network"
+fi
