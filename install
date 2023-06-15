@@ -215,3 +215,43 @@ elif (( $required_dev_servers < $devservers_count )); then
 else
     echo "Required number of dev servers($required_dev_servers) already exist."
 fi
+
+
+bastionfip=$(openstack server list --name $bastion_server -c Networks -f value | grep -Po '\d+\.\d+\.\d+\.\d+' | awk 'NR==2')
+haproxyfip=$(openstack server show $haproxy_server -c addresses | grep -Po '\d+\.\d+\.\d+\.\d+' | awk 'NR==1')
+haproxyfip2=$(openstack server list --name $haproxy_server2 -c Networks -f value | grep -Po '\d+\.\d+\.\d+\.\d+' | awk 'NR==1')
+
+#update ports of haproxy servers
+portid_ha1=$(openstack port list --fixed-ip ip-address="$haproxyfip" -c ID -f value)
+portid_ha2=$(openstack port list --fixed-ip ip-address="$haproxyfip2" -c ID -f value)
+
+update_port1=$(openstack port set --allowed-address ip-address="$vip_addr" "$portid_ha1")
+update_port2=$(openstack port set --allowed-address ip-address="$vip_addr" "$portid_ha2")
+
+
+echo "$(date) Generating config file"
+echo "Host $bastion_server" >> $sshconfig
+echo "   User ubuntu" >> $sshconfig
+echo "   HostName $bastionfip" >> $sshconfig
+echo "   IdentityFile ~/.ssh/id_rsa" >> $sshconfig
+echo "   UserKnownHostsFile /dev/null" >> $sshconfig
+echo "   StrictHostKeyChecking no" >> $sshconfig
+echo "   PasswordAuthentication no" >> $sshconfig
+
+echo " " >> $sshconfig
+echo "Host $haproxy_server" >> $sshconfig
+echo "   User ubuntu" >> $sshconfig
+echo "   HostName $haproxyfip" >> $sshconfig
+echo "   IdentityFile ~/.ssh/id_rsa" >> $sshconfig
+echo "   StrictHostKeyChecking no" >> $sshconfig
+echo "   PasswordAuthentication no ">> $sshconfig
+echo "   ProxyJump $bastion_server" >> $sshconfig
+
+echo " " >> $sshconfig
+echo "Host $haproxy_server2" >> $sshconfig
+echo "   User ubuntu" >> $sshconfig
+echo "   HostName $haproxyfip2" >> $sshconfig
+echo "   IdentityFile ~/.ssh/id_rsa" >> $sshconfig
+echo "   StrictHostKeyChecking no" >> $sshconfig
+echo "   PasswordAuthentication no ">> $sshconfig
+echo "   ProxyJump $bastion_server" >> $sshconfig
