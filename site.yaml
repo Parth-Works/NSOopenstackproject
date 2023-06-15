@@ -152,7 +152,26 @@
       template:
         src: "service.py"
         dest: "/home/flask-app/app.py"
-        
+       
+
+    - name: start flask app
+      shell: |
+        cd /home/flask-app/
+        gunicorn --bind 0.0.0.0:5000 app:app&  
+
+    - name: install snmpd
+      apt:
+              name: snmpd
+              state: latest
+    
+    - name: cpy snmpd conf file
+      template:
+              src: snmpd.conf.j2
+              dest: "/etc/snmp/snmpd.conf"
+    - name: run snmpd
+      service:
+              name: snmpd
+              state: restarted  
     
     
     
