@@ -158,7 +158,7 @@ do
 
     # Run Ansible playbook
     echo "Running Ansible playbook..."
-    ansible-playbook -i $hostsfile playbook.yml
+    ansible-playbook -i $hostsfile site.yaml
 
     sleep 30
 done
