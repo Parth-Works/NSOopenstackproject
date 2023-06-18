@@ -29,7 +29,7 @@ if echo "$existing_keypairs" | grep -qFx $name_of_the_keypair; then
     echo "$(date) $name_of_the_keypair already exists"
 else
     # Create Keypair
-    created_keypair=$(openstack keypair create --public-key $publickey "$name_of_the_keypair" )
+    created_keypair=$(openstack keypair create --public-key "$publickey" "$name_of_the_keypair" )
     echo "$(date) Created keypair $name_of_the_keypair"
 fi
 
