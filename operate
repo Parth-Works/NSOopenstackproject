@@ -27,7 +27,10 @@ generate_config(){
     haproxyfip=$(openstack server show $haproxy_server -c addresses | grep -Po '\d+\.\d+\.\d+\.\d+' | awk 'NR==1')
     haproxyfip2=$(openstack server list --name $haproxy_server2 -c Networks -f value | grep -Po '\d+\.\d+\.\d+\.\d+' | awk 'NR==1')
 
+    # generate sshconfig file
+
     echo "$(date) Generating config file"
+
     echo "Host $bastion_server" >> $sshconfig
     echo "   User ubuntu" >> $sshconfig
     echo "   HostName $bastionfip" >> $sshconfig
@@ -54,6 +57,9 @@ generate_config(){
     echo "   ProxyJump $bastion_server" >> $sshconfig
 
     # generate hosts file
+
+    echo "$(date) Generating hosts file"
+
     echo "[bastion]" >> $hostsfile
     echo "$bastion_server" >> $hostsfile
     echo " " >> $hostsfile
@@ -73,13 +79,21 @@ generate_config(){
 
     # Get the list of active servers
     active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep -oP "${tag_name}"'_dev([1-9]+)')
-    echo "$active_servers"
-    
+    active_servers_array=($active_servers)  # Convert the string to an array
+    count=${#active_servers_array[@]}  # Get the length of the array
+
+    echo -e "Active servers: $active_servers"
+    echo "Number of active servers: $count"
+
+
     # Loop through each active server and extract its IP address
+    echo "Adding the webservers onto Hostsfile"
+
     for server in $active_servers; do
         ip_address=$(openstack server list --name $server -c Networks -f value | grep -Po '\d+\.\d+\.\d+\.\d+')
+        echo "$(date) IP Address of $server:$ip_address"
         echo " " >> $sshconfig
-        echo "Host $server" >> $sshconfig
+        echo "   Host $server" >> $sshconfig
         echo "   User ubuntu" >> $sshconfig
         echo "   HostName $ip_address" >> $sshconfig
         echo "   IdentityFile ~/.ssh/id_rsa" >> $sshconfig
@@ -96,6 +110,16 @@ generate_config(){
     echo "ansible_user=ubuntu" >> $hostsfile
     echo "ansible_ssh_private_key_file=~/.ssh/id_rsa" >> $hostsfile
     echo "ansible_ssh_common_args=' -F $sshconfig '" >> $hostsfile
+    echo "Completed Adding the webservers onto Hostsfile"
+    # Print the contents of the hosts file
+    cat "$hostsfile"
+}
+
+# Delete all contents of the hostsfile
+delete_config() {
+    > "$hostsfile"
+    > "$sshconfig"
+    echo "Deleted all contents of the config files"
 }
 
 create_dev_servers() {
@@ -104,11 +128,11 @@ create_dev_servers() {
     
     while [ $devservers_to_add -gt 0 ]
     do   
+        ((sequence++))
         devserver_name=${dev_server}${sequence}
         server_create=$(openstack server create --image "Ubuntu 20.04 Focal Fossa 20200423"  $devserver_name --key-name "$name_of_the_keypair" --flavor "1C-2GB-50GB" --network "$name_of_the_network" --security-group "$name_of_the_securitygroup")
         echo "$(date) Created $devserver_name server"
         ((devservers_to_add--))
-        ((sequence++))
         
         active=false
         while [ "$active" = false ]; do
@@ -139,21 +163,27 @@ do
 
     existing_servers=$(openstack server list --status ACTIVE --column Name -f value)
     devservers_count=$(grep -c $dev_server <<< $existing_servers)
+
     echo "$(date) We currently have $devservers_count dev nodes"
 
     if [[ $devservers_count -lt $required_dev_servers ]]; then
+
         devservers_to_add=$((required_dev_servers - devservers_count))
-        echo "$(date) We need to create $devservers_to_add dev nodes"
+        echo "$(date) We need to create $devservers_to_add dev nodes:$flag"
         create_dev_servers $devservers_to_add $devservers_count
+
     elif [[ $devservers_count -gt $required_dev_servers ]]; then
+
         devservers_to_remove=$((devservers_count - required_dev_servers))
-        echo "$(date) We need to delete $devservers_to_remove dev nodes"
+        echo "$(date) We need to delete $devservers_to_remove dev nodes:$flag"
         delete_dev_servers $devservers_to_remove
+
     else
-        echo "$(date) We have the required number of dev nodes"
+        echo "$(date) We have the required number of dev nodes:$flag"        
     fi
 
     # Generate the config file and hosts file
+    delete_config
     generate_config
 
     # Run Ansible playbook
