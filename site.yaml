@@ -186,7 +186,7 @@
       setup:
           filter: ansible_default_ipv4.address     
 
-    - name: Copr script to server
+    - name: Copy script to server
       copy:
         src: "monitoringsolution.sh"
         dest: "monitoringsolution.sh"
@@ -222,7 +222,7 @@
       become: yes
       shell: while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done;
 
-    - name: Copr script to server
+    - name: Copy script to server
       copy:
         src: "node_exp.sh"
         dest: "node_exp.sh"
