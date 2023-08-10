@@ -45,3 +45,28 @@ build_keypairs()
                         echo "$(date) Keypair: Created keypair $name_of_the_keypair"
         fi
 }
+
+build_securityGrp()
+{
+        # check if security group already exists
+        existing_security_groups=$(openstack security group list --tag $tag -f value)
+        # create security group
+        if [[ -z "$existing_security_groups" ||  "$existing_security_groups" != *"$name_of_the_securitygroup"* ]]
+        then
+                        Created_security_group=$(openstack security group create --tag $tag $name_of_the_securitygroup -f json)
+                        rule1=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 22 --protocol tcp --ingress $name_of_the_securitygroup)
+                        rule2=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 80 --protocol icmp --ingress $name_of_the_securitygroup)
+                        rule3=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 5000 --protocol tcp --ingress $name_of_the_securitygroup)
+                        rule4=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 8080 --protocol tcp --ingress $name_of_the_securitygroup)
+                        rule5=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 6000 --protocol udp --ingress $name_of_the_securitygroup)
+                        rule6=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 9090 --protocol tcp --ingress $name_of_the_securitygroup)
+                        rule7=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 9100 --protocol tcp --ingress $name_of_the_securitygroup)
+                        rule8=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 3000 --protocol tcp --ingress $name_of_the_securitygroup)
+                        rule9=$(openstack security group rule create --remote-ip 0.0.0.0/0 --dst-port 161 --protocol udp --ingress $name_of_the_securitygroup)
+                        rule10=$(openstack security group rule create --protocol 112 $name_of_the_securitygroup) #VVRP protocol
+
+                        echo "$(date) Security Group: Created $name_of_the_securitygroup"
+        else
+                        echo "$(date) Security Group: Already exists $name_of_the_securitygroup"
+        fi
+}
