@@ -70,3 +70,45 @@ build_securityGrp()
                         echo "$(date) Security Group: Already exists $name_of_the_securitygroup"
         fi
 }
+
+build_network()
+{
+        # Check if network already exists
+        existing_networks=$(openstack network list --tag "$tag" --column Name -f value)
+
+
+        if echo "$existing_networks" | grep -qFx $name_of_the_network; then
+                        echo "$(date) Network: Already exists $name_of_the_network"
+                        echo "$(date) Network: The existing networks are: $existing_networks"
+        else
+                        # Create network
+                        Created_network=$(openstack network create --tag "$tag" "$name_of_the_network" -f json)
+                        echo "$(date) Network: Created network $name_of_the_network"
+        fi
+
+        # Check if subnet already exists
+        existing_subnets=$(openstack subnet list --tag "$tag" --column Name -f value)
+
+        if echo "$existing_subnets" | grep -qFx $name_of_the_subnet; then
+                        echo "$(date) Network: Already exists $name_of_the_subnet"
+        else
+                        # Create network
+                        Created_subnet=$(openstack subnet create --subnet-range 10.10.0.0/24 --allocation-pool start=10.10.0.2,end=10.10.0.30 --tag "$tag" --network "$name_of_the_network" "$name_of_the_subnet" -f json)        
+                        echo "$(date) Network: Created subnet $name_of_the_subnet"
+        fi
+
+        # check if router already exists
+        existing_routers=$(openstack router list --tag "$tag" --column Name -f value)
+
+        if echo "$existing_routers" | grep -qFx $name_of_the_router; then
+                        echo "$(date) Network: Already exists $name_of_the_router"
+        else
+                        Created_router=$(openstack router create --tag $tag $name_of_the_router )
+
+                        # add subnet and externel gateway to the router
+                        set_gateway=$(openstack router set --external-gateway ext-net $name_of_the_router)
+                        add_subnet=$(openstack router add subnet $name_of_the_router $name_of_the_subnet)
+
+                        echo "$(date) Network: Created router $name_of_the_router"
+        fi
+}
