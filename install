@@ -329,6 +329,7 @@ build_servers() {
                 fi
         done
 }
+
 remove_servers() {
 
         local remove_count=$1
@@ -395,4 +396,3 @@ generate_sshfile() {
         echo "   StrictHostKeyChecking no" >> $sshconfig
         echo "   PasswordAuthentication no ">> $sshconfig
         echo "   ProxyJump $bastion_server" >> $sshconfig
-
