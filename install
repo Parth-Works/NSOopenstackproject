@@ -350,3 +350,20 @@ remove_servers() {
                 ((sequence++))
         done
 }
+
+exists_in_list() {
+        LIST=("$@")  # Store all arguments in the array
+        TARGET="${LIST[-1]}"  # The last argument is the element to search for
+
+        # Remove the last element (TARGET) from the array
+        unset "LIST[${#LIST[@]}-1]"
+
+        if echo "${LIST[@]}" | grep -wq "$TARGET"; then
+                        return 0  # Return success (element found)
+        else
+                        return 1  # Return failure (element not found)
+        fi
+}
+
+##########          GENERATING CONFIG FILES          #############################
+
