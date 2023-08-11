@@ -46,3 +46,17 @@ del_keypair() {
                 echo "$(date) Keypairs: Doesn't exists $name_of_the_keypair."
         fi
 }
+
+
+# Delete Security Groups
+del_security_group() {        
+        security_group=$(openstack security group list --tag $tag -f value -c Name)
+        if [ -n "$security_group" ]; then
+                for sec in $security_group; do
+                    openstack security group delete "$sec"
+                done
+                echo "$(date) Security Group: Deleted security group $name_of_the_securitygroup."
+        else
+                echo "$(date) Security Group: Doesn't exists $name_of_the_securitygroup."
+        fi
+}
