@@ -109,3 +109,25 @@ build_HAproxy() {
                         status_new=true
         fi      
 }
+
+#3. VIRTUAL PORT
+config_vport() {
+        # HAproxy IPs
+        ip_ha1=$(openstack server show $haproxy_server1 -c addresses -f value | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}')
+        ip_ha2=$(openstack port list --server $haproxy_server2 -f json | jq -r '.[0]."Fixed IP Addresses"[0].ip_address')
+
+        echo "$(date) HAproxy: Configured with Fixed IPs: $ip_ha1 and $ip_ha2" 
+
+        #1.      create VIRTUAL PORT            ##
+        existing_vport=$(openstack port list | grep "$vport_name" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}')
+        if [[ -n "$existing_vport" ]]; then
+                        echo "$(date) Virtual Port: Already exists $vport_name"
+        else
+                        new_virtualport=$(openstack port create --network "$name_of_the_network" --fixed-ip subnet="$name_of_the_subnet" --no-security-group "$vport_name")
+                        echo "$(date) Virtual Port: Created port $vport_name"
+                        status_new=true
+        fi
+
+        # IP addr Virtual Port
+        ip_vport=$(openstack port show $vport_name --format json | jq -r '.fixed_ips[0].ip_address')
+        echo "$ip_vport" >> $vport_file # keeping V-Port FIXED IP address in a file "vipaddr"  
