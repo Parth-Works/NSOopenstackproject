@@ -294,6 +294,7 @@ remove_servers() {
                 ((sequence++))
         done
 }
+
 exists_in_list() {
         LIST=("$@")  # Store all arguments in the array
         TARGET="${LIST[-1]}"  # The last argument is the element to search for
@@ -309,3 +310,51 @@ exists_in_list() {
 }
 
 ##########          GENERATING CONFIG FILES          #############################
+
+generate_sshfile() {
+        active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
+
+        echo "Host $bastion_server" >> $sshconfig
+        echo "   User ubuntu" >> $sshconfig
+        echo "   HostName $bastion_fip" >> $sshconfig
+        echo "   IdentityFile $pvtkey_path" >> $sshconfig
+        echo "   UserKnownHostsFile /dev/null" >> $sshconfig
+        echo "   StrictHostKeyChecking no" >> $sshconfig
+        echo "   PasswordAuthentication no" >> $sshconfig
+
+        echo " " >> $sshconfig
+        echo "Host $haproxy_server1" >> $sshconfig
+        echo "   User ubuntu" >> $sshconfig
+        echo "   HostName $ip_ha1" >> $sshconfig
+        echo "   IdentityFile $pvtkey_path" >> $sshconfig
+        echo "   StrictHostKeyChecking no" >> $sshconfig
+        echo "   PasswordAuthentication no ">> $sshconfig
+        echo "   ProxyJump $bastion_server" >> $sshconfig
+
+        echo " " >> $sshconfig
+        echo "Host $haproxy_server2" >> $sshconfig
+        echo "   User ubuntu" >> $sshconfig
+        echo "   HostName $ip_ha2" >> $sshconfig
+        echo "   IdentityFile $pvtkey_path" >> $sshconfig
+        echo "   StrictHostKeyChecking no" >> $sshconfig
+        echo "   PasswordAuthentication no ">> $sshconfig
+        echo "   ProxyJump $bastion_server" >> $sshconfig
+
+        # Loop through each active server and extract its IP address
+        for server in $active_servers; 
+        do
+                ip_address=$(openstack server list --name $server -c Networks -f value | grep -Po  '\d+\.\d+\.\d+\.\d+')
+
+                echo " " >> $sshconfig
+                echo "Host $server" >> $sshconfig
+                echo "   User ubuntu" >> $sshconfig
+                echo "   HostName $ip_address" >> $sshconfig
+                echo "   IdentityFile $pvtkey_path" >> $sshconfig
+                echo "   UserKnownHostsFile=~/dev/null" >> $sshconfig
+                echo "   StrictHostKeyChecking no" >> $sshconfig
+                echo "   PasswordAuthentication no" >> $sshconfig
+                echo "   ProxyJump $bastion_server" >> $sshconfig
+        done
+
+        echo "$(date) Dev Servers: Generated config file"
+}
