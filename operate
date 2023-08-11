@@ -131,3 +131,25 @@ config_vport() {
         # IP addr Virtual Port
         ip_vport=$(openstack port show $vport_name --format json | jq -r '.fixed_ips[0].ip_address')
         echo "$ip_vport" >> $vport_file # keeping V-Port FIXED IP address in a file "vipaddr"  
+
+        #2.      existing FLOATING IPs           ##
+
+        existing_vport_fip=$(openstack floating ip list --fixed-ip-address $ip_vport -c "Floating IP Address" -f value)
+        if [[ -n "$existing_vport_fip" ]]; then
+                        #echo "$(date) Floating IPs $existing_vport_fip are available"
+
+                        ### 3.     GET: FLOATING IP 2           ###
+                        echo "$(date) Virtual Port: Floating IP:$existing_vport_fip found attached to VPort IP: $ip_vport"
+                        fip2=$existing_vport_fip   
+                        echo $fip2 > floating_ip2 
+        else
+                        ### 3.     CREATE: FLOATING IP 2        ###
+                        echo "$(date) Virtual Port: Assigning Floating IP for HAproxy Servers"
+                        fip2=$(create_fip)
+                        echo $fip2 > floating_ip2 # storing fip2 in a file "floating_ip2"
+
+                        #1 SET: Attaching VIRTUAL PORT (to the)---> FLOATING IP.
+                        update_fip2=$(openstack floating ip set --port $vport_name $fip2)
+
+                        status_new=true           
+        fi
