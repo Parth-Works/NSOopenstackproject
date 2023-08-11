@@ -393,3 +393,59 @@ generate_hostsfile() {
 
         echo "$(date) Dev Servers: Generated Host file"
 }
+
+#  Running Playbook
+run_ansible() {         
+        echo "$(date) Running ansible playbook"
+        ansible-playbook -i "$hostsfile" site.yaml
+}
+
+############################################################################################
+
+
+#########       MAIN SCRIPT          #######################
+
+while true; do
+        echo "$(date) Running Operation mode with tag:$tag ....."
+
+        build_bastion
+        build_HAproxy
+        config_vport
+
+        required_servers=$(cat servers.conf)
+        echo "$(date) Dev Servers: Nodes required $required_servers"
+
+        # Get the list from the file
+        active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name" | sed ':a;N;$!ba;s/\n/ /g')
+        #echo "$(date) $active_servers"
+
+        # Use read command to split the input string into elements based on whitespace
+        # and populate the servers_list array
+        read -ra servers_list <<< "$active_servers"      
+
+        servers_count=${#servers_list[@]}
+        echo "$(date) Dev Servers: Active Servers: $servers_count::${servers_list[@]}"
+
+        if (( required_servers > servers_count )); then
+
+                        echo "$(date) Dev Servers: Creating Servers"
+                        build_servers "$required_servers" "$server_name"
+
+                        echo ""
+
+                        if [[ -f "$sshconfig" ]] ; then
+                                        rm "$sshconfig"
+                        fi
+                        generate_sshfile
+
+                        if [[ -f "$hostsfile" ]] ; then
+                                        rm "$hostsfile"
+                        fi       
+                        generate_hostsfile
+
+                        echo ""
+
+                        echo "$(date) Dev Servers: Created required servers"
+                        
+                        sleep 10        
+                        run_ansible
