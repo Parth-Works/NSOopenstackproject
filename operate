@@ -449,3 +449,41 @@ while true; do
                         
                         sleep 10        
                         run_ansible
+
+        elif (( required_servers < servers_count )); then
+
+                        echo "$(date) Dev Servers: Removing Servers"
+                        remove_count=$((servers_count - required_servers))
+                        remove_servers "$remove_count" "${servers_list[@]}"
+
+                        if [[ -f "$sshconfig" ]] ; then
+                                        rm "$sshconfig"
+                        fi
+                        generate_sshfile
+
+                        if [[ -f "$hostsfile" ]] ; then
+                                        rm "$hostsfile"
+                        fi       
+                        generate_hostsfile
+
+                        echo "$(date) Dev Servers: Created required servers"
+
+                        sleep 10        
+                        run_ansible                
+        else
+                        echo "$(date) Required number of dev servers ($required_servers) already exist."
+        fi
+
+        #  Obtaining Floating IPs
+        echo "$(date) Bastion Floating IP address: $bastion_fip"
+        echo "$(date) HAproxy Floating IP address: $haproxy_fip"
+
+        ############################################################################
+
+        echo "$(date) Operation Completed"
+        echo ""
+        echo ""
+        sleep 30
+done
+
+#############################
