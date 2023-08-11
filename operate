@@ -30,3 +30,24 @@ vport_file="vipaddr"
 status_new=false
 
 #########           CONFIGURING SERVERS             ######################
+#1. BASTION SERVER
+build_bastion() {
+        #1      CREATE Bastion Server           ##
+        existing_bastion=$(openstack server list --status ACTIVE --column Name -f value | grep "^$bastion_server$") #get exact match in search
+
+        if echo "$existing_bastion" | grep -q "\b$bastion_server\b"; then
+                        echo "$(date) Bastion: Already exists $bastion_server"
+        else
+                        bastion=$(openstack server create --image "Ubuntu 20.04 Focal Fossa x86_64" $bastion_server --key-name $name_of_the_keypair --flavor "1C-2GB-50GB" --network $name_of_the_network --security-group $name_of_the_securitygroup)
+                        while true; do                                
+                                        server_status=$(openstack server show "$bastion_server" -f value -c status)
+                                        if [ "$server_status" == "ACTIVE" ]; then
+                                                        break
+                                        fi
+                        done                        
+                        echo "$(date) Bastion: Created server $bastion_server."
+        fi
+
+        # BASTION FIXED-IP
+        bastion_ip=$(openstack server show $bastion_server -c addresses -f value | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}'| awk 'NR==1')
+        echo "$(date) Bastion: Fixed IP:--$bastion_ip"
