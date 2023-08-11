@@ -518,3 +518,21 @@ elif (( required_servers < servers_count )); then
 else
                 echo "$(date) Required number of dev servers ($required_servers) already exist."
 fi
+
+#  Obtaining Floating IPs
+echo "$(date) Bastion Floating IP address: $bastion_fip"
+echo "$(date) HAproxy Floating IP address: $haproxy_fip"
+
+############################################################################
+
+sleep 10
+
+#  Running Playbook 
+echo "$(date) Running ansible playbook"
+ansible-playbook -i "$hostsfile" site.yaml
+
+#  Obtaining Floating IPs
+echo "$(date) Bastion Floating IP address: $bastion_fip"
+echo "$(date) HAproxy Floating IP address: $haproxy_fip"
+
+echo "$(date) Install Completed"
