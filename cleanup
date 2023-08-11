@@ -233,3 +233,21 @@ del_fip_files() {
                 echo "$(date) FIP File: Doesn't exists $floating_ip2"
         fi
 }
+
+##############################################################################
+
+########                MAIN SCRIPT                       ######
+
+detach_floating_IPs
+del_vport
+del_servers
+del_network
+del_security_group
+del_keypair
+del_sshconfig
+del_hostsfile
+#del_floatingIPs
+
+echo "$(date) tag:$tag CleanUp Completed."
+
+####
