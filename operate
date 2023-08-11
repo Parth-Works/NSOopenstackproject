@@ -358,3 +358,38 @@ generate_sshfile() {
 
         echo "$(date) Dev Servers: Generated config file"
 }
+
+generate_hostsfile() {
+        active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
+
+        # generate hosts file
+        echo "[bastion]" >> $hostsfile
+        echo "$bastion_server" >> $hostsfile
+        echo " " >> $hostsfile
+        echo "[HAproxy]" >> $hostsfile
+        echo "$haproxy_server1" >> $hostsfile
+        echo "$haproxy_server2" >> $hostsfile
+
+        echo " " >> $hostsfile
+        echo "[webservers]" >> $hostsfile
+
+        # Loop through each active server and extract its IP address            
+        for server in $active_servers; do
+                echo "$server" >> $hostsfile
+        done
+
+        echo " " >> $hostsfile
+        echo "[primary_proxy]" >> $hostsfile
+        echo "$haproxy_server1" >> $hostsfile
+        echo " " >> $hostsfile
+        echo "[backup_proxy]" >> $hostsfile
+        echo "$haproxy_server2" >> $hostsfile
+
+        echo " " >> $hostsfile
+        echo "[all:vars]" >> $hostsfile
+        echo "ansible_user=ubuntu" >> $hostsfile
+        echo "ansible_ssh_private_key_file=$pvtkey_path" >> $hostsfile
+        echo "ansible_ssh_common_args=' -F $sshconfig '" >> $hostsfile
+
+        echo "$(date) Dev Servers: Generated Host file"
+}
