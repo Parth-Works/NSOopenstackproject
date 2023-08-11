@@ -60,3 +60,68 @@ del_security_group() {
                 echo "$(date) Security Group: Doesn't exists $name_of_the_securitygroup."
         fi
 }
+
+# Delete Network and its Componenets
+del_network() {
+
+        # Delete Router
+        # remove_ext_gateway=$(openstack router unset --external-gateway $existing_routers)
+        
+        router_id=$(openstack router list --name $name_of_the_router -c ID -f value)
+        echo "$(date) Network: existing router: $router_id"
+        if [ -n "$router_id" ]; then
+                
+                for id in $router_id; do
+                        echo "$(date) Network: Checking router ID $id"
+                        
+                        # Check if router has attached ports
+                        attached_port_ids=$(openstack router show -f json $id | jq -r '.interfaces_info[].port_id')
+                        echo "$(date) Network: Attached Ports IDs: $attached_port_ids"
+                        
+                        if [ -n "$attached_port_ids" ]; then
+
+                                # Disassociate ports from the router
+                                for port_id in $attached_port_ids; do
+                                        openstack router remove port $id $port_id
+                                        echo "$(date) Network: removed port:$port_id from router:$id."
+                                done
+                                
+                                # Introduce a small delay before attempting deletion
+                                sleep 2
+                        else
+                                echo "$(date) Network: No attached ports to router:$id."
+                        fi
+
+                        # Delete the router
+                        openstack router delete "$id"
+                        echo "$(date) Network: Deleted router $name_of_the_router."
+                done
+        else
+                echo "$(date) Network: Doesn't exist $name_of_the_router."
+        fi
+
+        # Disconnect subnet & Delete Subnet
+        # subnet_id=$(openstack router show "$name_of_the_router" -f json -c interfaces_info | grep -oP '(?<="subnet_id": ")[^"]+' | awk '{print $1}')
+
+        subnet_id=$(openstack subnet list --tag "$tag" -c ID -f value)
+        if [ -n "$subnet_id" ]; then
+                for sub in $subnet_id; do
+                        openstack router remove subnet "$name_of_the_router" "$sub"
+                        openstack subnet delete "$sub"
+                done
+                echo "$(date) Network: Deleted subnet $name_of_the_subnet."
+        else
+                echo "$(date) Network: Doesn't exists $name_of_the_subnet."
+        fi
+
+        # Delete Network
+        networks=$(openstack network list --tag $tag -f value -c Name)
+        if [ -n "$networks" ]; then
+                for net in $networks; do
+                        openstack network delete "$net"
+                done
+                echo "$(date) Network: Deleted network $name_of_the_network."
+        else
+                echo "$(date) Network: Doesn't exists $name_of_the_network."
+        fi
+}
