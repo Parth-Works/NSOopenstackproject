@@ -329,3 +329,24 @@ build_servers() {
                 fi
         done
 }
+remove_servers() {
+
+        local remove_count=$1
+        local servers=("${@:2:$#}")
+        local sequence=1
+
+
+        while true; do
+                if (( $sequence > $remove_count )); then
+                                break
+                fi
+
+                random_index=$((RANDOM % ${#servers[@]}))
+                server_to_remove=${servers[random_index]}
+
+                deleted_server=$(openstack server delete "$server_to_remove" --wait)
+                echo "$(date) Dev Servers: Deleted $server_to_remove server"
+
+                ((sequence++))
+        done
+}
