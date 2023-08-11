@@ -215,3 +215,21 @@ del_hostsfile() {
                 echo "$(date) Hostfile: Doesn't exists $hostsfile."
         fi
 }
+
+# Delete Floating IPs
+del_fip_files() {
+        if [[ -f "$floating_ip1" ]] ; then
+                rm "$floating_ip1"
+                echo "$(date) FIP File: $floating_ip1 Deleted."
+        else
+                echo "$(date) FIP File: Doesn't exists $floating_ip1."
+        fi
+
+
+        if [[ -f "$floating_ip2" ]] ; then
+                rm "$floating_ip2"
+                echo "$(date) FIP File: $floating_ip2 Deleted."
+        else
+                echo "$(date) FIP File: Doesn't exists $floating_ip2"
+        fi
+}
