@@ -125,3 +125,21 @@ del_network() {
                 echo "$(date) Network: Doesn't exists $name_of_the_network."
         fi
 }
+
+# Delete Servers
+del_servers() {
+        # Get the list of servers matching the keyword
+        servers=$(openstack server list --name "$tag" -c ID -f value)
+        n=$(echo "$servers" | wc -l)
+        # Loop through each server and delete it
+        if [ -n "$servers" ]; then
+                echo "$(date) Found $n server(s), Deleting them."
+
+                for server_id in $servers; do
+                        openstack server delete $server_id
+                done
+                echo "$(date) Servers: Existing servers Deleted." 
+        else
+                echo "$(date) Servers: Doesn't exists $tag Servers."
+        fi
+}
