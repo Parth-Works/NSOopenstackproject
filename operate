@@ -76,3 +76,36 @@ build_bastion() {
         echo "$(date) Bastion: Configured with Fixed-IP:$bastion_ip & Floating-IP:$bastion_fip."
         echo ""
 }
+
+#2. HAPROXY SERVERS
+build_HAproxy() {
+        existing_haproxy1=$(openstack server list --status ACTIVE --column Name -f value | grep "^$haproxy_server1$") #get exact match in search
+        if echo "$existing_haproxy1" | grep -q "\b$haproxy_server1\b"; then
+                        echo "$(date) HAproxy: Already exists $haproxy_server1"
+        else
+                        haproxy1=$(openstack server create --image "Ubuntu 20.04 Focal Fossa x86_64" $haproxy_server1 --key-name $name_of_the_keypair --flavor "1C-2GB-50GB" --network $name_of_the_network --security-group $name_of_the_securitygroup)
+                        while true; do                                
+                                        server_status1=$(openstack server show "$haproxy_server1" -f value -c status)
+                                        if [ "$server_status1" == "ACTIVE" ]; then
+                                                        break
+                                        fi
+                        done  
+                        echo "$(date) HAproxy: Created server $haproxy_server1"
+                        status_new=true
+        fi
+
+        existing_haproxy2=$(openstack server list --status ACTIVE --column Name -f value | grep "^$haproxy_server2$") #get exact match in search
+        if echo "$existing_haproxy2" | grep -q "\b$haproxy_server2\b"; then
+                        echo "$(date) HAproxy: Already exists $haproxy_server2"
+        else
+                        haproxy2=$(openstack server create --image "Ubuntu 20.04 Focal Fossa x86_64" $haproxy_server2 --key-name $name_of_the_keypair --flavor "1C-2GB-50GB" --network $name_of_the_network --security-group $name_of_the_securitygroup)
+                        while true; do                                
+                                        server_status2=$(openstack server show "$haproxy_server2" -f value -c status)
+                                        if [ "$server_status2" == "ACTIVE" ]; then
+                                                        break
+                                        fi
+                        done  
+                        echo "$(date) HAproxy: Created server $haproxy_server2."
+                        status_new=true
+        fi      
+}
