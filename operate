@@ -30,6 +30,7 @@ vport_file="vipaddr"
 status_new=false
 
 #########           CONFIGURING SERVERS             ######################
+
 #1. BASTION SERVER
 build_bastion() {
         #1      CREATE Bastion Server           ##
