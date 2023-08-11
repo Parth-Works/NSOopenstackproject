@@ -1,169 +1,34 @@
 #!/bin/bash
-
 current_date_time=$(date)
 rc_file=$1
-tag_name=$2
+tag="$2"
 publickey=$3
-required_dev_servers=$(cat servers.conf)
 
-echo "$current_date_time Starting deployment of $tag_name using $rc_file for credentials."
+required_servers=3
+
+pvtkey="${publickey%.pub}"
+current_dir="$(pwd)"
+pvtkey_path="${current_dir}/${pvtkey}"
+
+echo "$current_date_time Starting CleanUp with tag:$tag using $rc_file for credentials."
 source $rc_file
 
 # Define variables
+name_of_the_network="${tag}_network"
+name_of_the_subnet="${tag}_subnet"
+name_of_the_keypair="${tag}_key"
+name_of_the_router="${tag}_router"
+name_of_the_securitygroup="${tag}_security_group"
+haproxy_server1="${tag}_HAproxy1"
+haproxy_server2="${tag}_HAproxy2"
+bastion_server="${tag}_bastion"
+server_name="${tag}_dev"
+vport_name="${tag}_vport" #virtual ip port name
 
-name_of_the_network="$2_newnetwork"
-name_of_the_subnet="$2_newsubnet"
-name_of_the_keypair="$2_newkey"
-name_of_the_router="$2_newrouter"
-name_of_the_securitygroup="$2_security_group"
-haproxy_server="$2_HAproxy"
-haproxy_server2="$2_HAproxy2"
-bastion_server="$2_bastion"
-dev_server="$2_dev"
-vip_port="$2_vip" #virtual ip port
 sshconfig="config"
-knownhosts="known_hosts"
 hostsfile="hosts"
-fip2="$(cat floating_ip2)"
+vport_file="vipaddr"
+floating_ip1="floating_ip1"
+floating_ip2="floating_ip2"
 
-# Get the list of servers matching the keyword
-servers=$(openstack server list --name "$tag_name" -c ID -f value)
-n=$(echo "$servers" | wc -l)
-# Loop through each server and delete it
-if [ -n "$servers" ]; then
-  echo "$(date) Found $n server(s), deleting them"
-  for server_id in $servers; do
-    openstack server delete $server_id
-  done
-  echo "$(date) Deleted servers" 
-else
-  echo "$(date) No servers exist to delete"
-fi
-
-# delete keypair 
-
-# keypairs=$(openstack keypair list -f value -c Name)
-keypairs=$(openstack keypair list -f value -c Name | grep "$tag_name.*")
-# echo "$keypairs"
-
-if [ -n "$keypairs" ]; then
-  for key in $keypairs; do    #deletes all keypairs with same tag
-    openstack keypair delete $key
-  done
-  echo "$(date) Deleted keypair $name_of_the_keypair"
-else
-  echo "$(date) No $name_of_the_keypair exist to delete"
-fi
-
-# delete floating ip
-floating_ip=$(openstack floating ip list --status DOWN -f value -c "Floating IP Address")
-# floating_ip_list=(${existing_floating_ip// / })
-
-if [ -n "$floating_ip" ]; then
-  for fip in $floating_ip; do
-    openstack floating ip delete "$fip"
-  done
-  echo "$(date) Deleted Floating ips"
-else
-  echo "$(date) No floating ips to remove"
-fi
-
-#detach floating ip from virtual port
-vip_fip=$(openstack floating ip unset --port "$fip2" )
-# unsetfip=$(openstack floating ip unset )
-echo "$(date) Detached floating IP from virtual port"
-
-vip_addr=$(openstack port show "$vip_port" -f value -c fixed_ips | grep -Po '\d+\.\d+\.\d+\.\d+')
-# echo "$(date) Removed virtual IP address $vip_addr"
-echo "$vip_addr" >> vipaddr
-
-
-# Unassign floating IPs
-unassigned_ips=$(openstack floating ip list --port "$vip_port" --status ACTIVE -f value -c "Floating IP Address")
-
-for ip in $unassigned_ips; do
-    openstack floating ip unset --port "$ip"
-    echo "$(date) Unset floating IP $ip from port"
-done
-
-# Delete virtual port
-openstack port delete "$vip_port"
-echo "$(date) Deleted virtual port $vip_port"
-
-
-# Disconnect subnet & remove subnet
-
-# subnet_id=$(openstack router show "$name_of_the_router" -f json -c interfaces_info | grep -oP '(?<="subnet_id": ")[^"]+' | awk '{print $1}')
-
-subnet_id=$(openstack subnet list --tag "$tag_name" -c ID -f value)
-if [ -n "$subnet_id" ]; then
-  for sub in $subnet_id; do
-    openstack router remove subnet "$name_of_the_router" "$sub"
-    openstack subnet delete "$sub"
-  done
-  echo "$(date) Deleted subnet $name_of_the_subnet"
-else
-  echo "$(date) No subnet $name_of_the_subnet to remove"
-fi
-
-# remove_ext_gateway=$(openstack router unset --external-gateway $existing_routers) 
-
-# Delete router
-
-routers=$(openstack router list --tag $tag_name -f value -c Name)
-if [ -n "$routers" ]; then
-  for r in $routers; do
-    openstack router delete "$r"
-  done
-  echo "$(date) Deleted router $name_of_the_router"
-else
-  echo "$(date) No router $name_of_the_router to remove"
-fi
-
-
-# Delete network
-networks=$(openstack network list --tag $tag_name -f value -c Name)
-if [ -n "$networks" ]; then
-  for net in $networks; do
-    openstack network delete "$net"
-  done
-  echo "$(date) Deleted network $name_of_the_network"
-else
-  echo "$(date) No network $name_of_the_network to remove"
-fi
-
-# Delete security groups
-security_group=$(openstack security group list --tag $tag_name -f value -c Name)
-if [ -n "$security_group" ]; then
-  for sec in $security_group; do
-    openstack security group delete "$sec"
-  done
-  echo "$(date) Deleted security group $name_of_the_securitygroup"
-else
-  echo "$(date) No security group $name_of_the_securitygroup to remove"
-fi
-
-if [[ -f "$sshconfig" ]] ; then
-    rm "$sshconfig"
-fi
-
-if [[ -f "$knownhosts" ]] ; then
-    rm "$knownhosts"
-fi
-
-if [[ -f "floating_ip1" ]] ; then
-    rm "floating_ip1"
-fi
-
-if [[ -f "floating_ip2" ]] ; then
-    rm "floating_ip2"
-fi
-
-if [[ -f "$hostsfile" ]] ; then
-    rm "$hostsfile"
-fi
-
-if [[ -f "vipaddr" ]] ; then
-  rm "vipaddr"
-
-fi
+######                 Delete Network                ##########################
