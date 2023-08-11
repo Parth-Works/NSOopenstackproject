@@ -32,3 +32,17 @@ floating_ip1="floating_ip1"
 floating_ip2="floating_ip2"
 
 ######                 Delete Network                ##########################
+
+# Delete Keypairs 
+del_keypair() {
+        keypairs=$(openstack keypair list -f value -c Name | grep "$tag.*")
+
+        if [ -n "$keypairs" ]; then
+                for key in $keypairs; do    #deletes all keypairs with same tag
+                        openstack keypair delete $key
+                done
+                echo "$(date) Keypairs: Deleted keypair $name_of_the_keypair."
+        else
+                echo "$(date) Keypairs: Doesn't exists $name_of_the_keypair."
+        fi
+}
