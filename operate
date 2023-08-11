@@ -213,3 +213,29 @@ create_fip() {
 }
 
 #########           DEV SERVERS SETUP             ###################
+build_servers() {
+
+        local required_servers=$1
+        local server_name="$2"
+
+        local list_servers=$(openstack server list -c Name -f value | grep "$server_name")
+        local active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
+
+        local servers=($list_servers)
+        local list_count=${#servers[@]}
+
+        local up_servers=($active_servers)
+        local up_count=${#up_servers[@]}
+
+        local sequence=1
+        local count=1
+
+        echo "$(date) Dev Servers:req: $required_servers"
+        
+        for item in ${servers[@]}; do
+                echo "$(date) Dev Servers: LIST  :$list_count::$item"
+        done
+
+        for item in ${up_servers[@]}; do
+                echo "$(date) Dev Servers: ACTIVE:$up_count::$item"
+        done
