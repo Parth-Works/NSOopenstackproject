@@ -285,3 +285,47 @@ config_vport() {
         echo "$(date) Virtual Port: Configured with HAproxy Servers -- FLOATING IP:$haproxy_fip"
         echo ""
 }
+
+create_fip() {
+        local floating_ip=""
+
+        unassigned_ips=$(openstack floating ip list --status DOWN -f value -c "Floating IP Address")
+        if [[ -n "$unassigned_ips" ]]; then
+                        floating_ip=$(echo "$unassigned_ips" | awk 'NR==1')            
+        else
+                        floating_ip=$(openstack floating ip create ext-net -f json | jq -r '.floating_ip_address')
+        fi
+        echo "$floating_ip"
+}
+
+#########           DEV SERVERS SETUP             ###################
+build_servers() {
+
+        local list_arguments=("$@")
+
+        local required_servers=${list_arguments[0]}
+        local server_name="${list_arguments[1]}"
+        local servers=()
+
+        for (( i = 2; i < ${#list_arguments[@]}; i++ )) ; do
+                servers+=("${list_arguments[i]}")
+        done
+
+        for (( sequence = 1; sequence <= required_servers; sequence++ )); do
+                new_server_name="${server_name}${sequence}"
+                #echo "$(date) $new_server_name"
+                
+                if ! exists_in_list "${servers[@]}" " " "$new_server_name"; then            
+                                server_output=$(openstack server create --image "Ubuntu 20.04 Focal Fossa x86_64"  $new_server_name --key-name "$name_of_the_keypair" --flavor "1C-2GB-50GB" --network $name_of_the_network --security-group $name_of_the_securitygroup)
+                                while true; do                                
+                                        server_status=$(openstack server show "$new_server_name" -f value -c status)
+                                        if [ "$server_status" == "ACTIVE" ]; then
+                                                        break
+                                        fi
+                                done
+                                echo "$(date) Dev Servers: Created $new_server_name server "
+                else
+                                true
+                fi
+        done
+}
