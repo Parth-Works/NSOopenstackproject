@@ -153,3 +153,63 @@ config_vport() {
 
                         status_new=true           
         fi
+
+        if [[ "$status_new" == true ]]; then
+                        echo "$(date) Virtual Port: Configuring"
+
+                        status_new=false
+
+                        #  EMPTY VIRTUAL PORT allowed addresses if exists   
+                        allowed_vport=$(openstack port show $vport_name --format json | jq -r '.allowed_address_pairs[0].ip_address')
+
+                        if [[ -n "$allowed_vport" ]]; then
+                                        empty_vport=$(openstack port set --no-allowed-address $vport_name)
+                        fi
+
+                        #2 SET: Update/Attaching FLOATING IP (to the)---> VIRTUAL PORT. 
+                        update_vport=$(openstack port set --allowed-address ip-address="$fip2" $vport_name)
+
+                        #3 SET: Attaching the HAproxy Port IPs (to the)---> VIRTUAL PORT.
+                        up_vport_ha1=$(openstack port set --allowed-address ip-address=$ip_ha1 $vport_name)
+                        up_vport_ha2=$(openstack port set --allowed-address ip-address=$ip_ha2 $vport_name)
+
+                        # HAproxy PORT IDs
+                        portid_ha1=$(openstack port list --server $haproxy_server1 -c ID -f value)
+                        portid_ha2=$(openstack port list --server $haproxy_server2 -c ID -f value)
+                        
+                        # HAproxy FIXED IPs
+                        allowed_ha1=$(openstack port show $portid_ha1 --format json | jq -r '.allowed_address_pairs[0].ip_address')
+                        allowed_ha2=$(openstack port show $portid_ha2 --format json | jq -r '.allowed_address_pairs[0].ip_address')
+
+                        #4 SET: Attaching VIRTUAL PORT *FIXED-IP* (to the)---> HAPROXY SERVERs-IDs.
+                        if [[ -n "$allowed_ha1" ]]; then
+                                        empty_ha1=$(openstack port set --no-allowed-address $portid_ha1)
+                        fi        
+                        update_ha1=$(openstack port set --allowed-address ip-address=$ip_vport $portid_ha1)
+
+                        if [[ -n "$allowed_ha2" ]]; then
+                                        empty_ha2=$(openstack port set --no-allowed-address $portid_ha2)
+                        fi
+                        update_ha2=$(openstack port set --allowed-address ip-address=$ip_vport $portid_ha2)
+        else
+                        echo "$(date) Virtual Port: already configured"
+        fi
+
+        haproxy_fip=$(openstack floating ip list --fixed-ip-address $ip_vport -c "Floating IP Address" -f value)
+        echo "$(date) Virtual Port: Configured with HAproxy Servers -- FLOATING IP:$haproxy_fip"
+        echo ""
+}
+
+create_fip() {
+        local floating_ip=""
+
+        unassigned_ips=$(openstack floating ip list --status DOWN -f value -c "Floating IP Address")
+        if [[ -n "$unassigned_ips" ]]; then
+                        floating_ip=$(echo "$unassigned_ips" | awk 'NR==1')            
+        else
+                        floating_ip=$(openstack floating ip create ext-net -f json | jq -r '.floating_ip_address')
+        fi
+        echo "$floating_ip"
+}
+
+#########           DEV SERVERS SETUP             ###################
