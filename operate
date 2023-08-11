@@ -239,3 +239,36 @@ build_servers() {
         for item in ${up_servers[@]}; do
                 echo "$(date) Dev Servers: ACTIVE:$up_count::$item"
         done
+
+        
+        while true; do
+                if (( sequence > required_servers )); then
+                                break
+                fi
+
+                new_server_name="${server_name}${count}"
+                
+                # if the new server exist in servers list
+                if exists_in_list "${servers[@]}" " " "$new_server_name"; then
+
+                                # if the new server exist in active servers 
+                                if exists_in_list "${up_servers[@]}" " " "$new_server_name"; then
+                                                echo "$(date) Dev Servers: Existing active server $new_server_name."
+                                                ((sequence++))
+                                else
+                                                echo "$(date) Dev Servers: INACTIVE server $new_server_name."
+                                fi
+                else
+                                server_output=$(openstack server create --image "Ubuntu 20.04 Focal Fossa x86_64"  $new_server_name --key-name "$name_of_the_keypair" --flavor "1C-2GB-50GB" --network $name_of_the_network --security-group $name_of_the_securitygroup)
+                                while true; do                                
+                                        server_status=$(openstack server show "$new_server_name" -f value -c status)
+                                        if [ "$server_status" == "ACTIVE" ]; then
+                                                        break
+                                        fi
+                                done
+                                ((sequence++))
+                                echo "$(date) Dev Servers: Created server $new_server_name."                                
+                fi
+                ((count++))                
+        done
+}
