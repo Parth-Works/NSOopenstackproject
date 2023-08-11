@@ -10,7 +10,7 @@ pvtkey="${publickey%.pub}"
 current_dir="$(pwd)"
 pvtkey_path="${current_dir}/${pvtkey}"
 
-echo "$current_date_time Starting deployment with tag:$tag using $rc_file for credentials."
+echo "$current_date_time Starting deployment with tag:$tag using $rc_file credentials."
 source $rc_file
 
 # Define variables
@@ -28,6 +28,7 @@ vport_name="${tag}_vport" #virtual ip port name
 sshconfig="config"
 hostsfile="hosts"
 vport_file="vipaddr"
+status_new=false
 
 ##########        SETTING UP NETWORK               ###########################
 
@@ -110,6 +111,7 @@ build_network()
                         add_subnet=$(openstack router add subnet $name_of_the_router $name_of_the_subnet)
 
                         echo "$(date) Network: Created router $name_of_the_router"
+                        echo ""
         fi
 }
 
@@ -147,7 +149,7 @@ build_bastion() {
                         echo $fip1 > floating_ip1 
         else
                         ### 3.     CREATE: FLOATING IP 1        ###
-                        echo "$(date) Bastion: Creating Floating IP for Bastion"
+                        echo "$(date) Bastion: Assigning Floating IP for Bastion"
                         fip1=$(create_fip)
                         echo $fip1 > floating_ip1 # storing fip1 in a file "floating_ip1"
 
@@ -158,6 +160,7 @@ build_bastion() {
         bastion_fip=$(openstack floating ip list --fixed-ip-address $bastion_ip -c "Floating IP Address" -f value)
                 
         echo "$(date) Bastion: Configured with Fixed-IP:$bastion_ip & Floating-IP:$bastion_fip."
+        echo ""
 }
 
 #2. HAPROXY SERVERS
@@ -174,6 +177,7 @@ build_HAproxy() {
                                         fi
                         done  
                         echo "$(date) HAproxy: Created server $haproxy_server1"
+                        status_new=true
         fi
 
         existing_haproxy2=$(openstack server list --status ACTIVE --column Name -f value | grep "^$haproxy_server2$") #get exact match in search
@@ -188,5 +192,6 @@ build_HAproxy() {
                                         fi
                         done  
                         echo "$(date) HAproxy: Created server $haproxy_server2."
+                        status_new=true
         fi      
 }
