@@ -303,16 +303,48 @@ build_servers() {
 
         local required_servers=$1
         local server_name="$2"
-        local servers=""
 
-        for (( sequence = 1; sequence <= required_servers; sequence++ )); do
-                new_server_name="${server_name}${sequence}"
-                #echo "$(date) $new_server_name"
+        local list_servers=$(openstack server list -c Name -f value | grep "$server_name")
+        local active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
 
-                active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name" | sed ':a;N;$!ba;s/\n/ /g')
-                servers=(active_servers)
+        local servers=($list_servers)
+        local list_count=${#servers[@]}
+
+        local up_servers=($active_servers)
+        local up_count=${#up_servers[@]}
+
+        local sequence=$up_count
+        local count=1
+        
+        for item in ${servers[@]}; do
+                echo "$(date) Dev Nodes: LIST   :$list_count::$item"
+        done
+
+        for item in ${up_servers[@]}; do
+                echo "$(date) Dev Nodes: ACTIVE :$up_count::$item"
+        done
+
+        
+        while true; do
+
+                new_server_name="${server_name}${count}"
+
+                list_servers=$(openstack server list -c Name -f value | grep "$server_name")
+                active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
+
+                servers=($list_servers)
+                up_servers=($active_servers)
                 
-                if ! exists_in_list "${servers[@]}" " " "$new_server_name"; then            
+                # if the new server exist in servers list
+                if exists_in_list "${servers[@]}" " " "$new_server_name"; then
+
+                                # if the new server exist in active servers 
+                                if exists_in_list "${up_servers[@]}" " " "$new_server_name"; then
+                                                echo "$(date) Dev Nodes: Existing active server $new_server_name."
+                                else
+                                                echo "$(date) Dev Nodes: INACTIVE server $new_server_name."
+                                fi
+                else
                                 server_output=$(openstack server create --image "Ubuntu 20.04 Focal Fossa x86_64"  $new_server_name --key-name "$name_of_the_keypair" --flavor "1C-2GB-50GB" --network $name_of_the_network --security-group $name_of_the_securitygroup)
                                 while true; do                                
                                         server_status=$(openstack server show "$new_server_name" -f value -c status)
@@ -320,10 +352,13 @@ build_servers() {
                                                         break
                                         fi
                                 done
-                                echo "$(date) Dev Nodes: Created $new_server_name server "
-                else
-                                true
+                                ((sequence++))
+                                echo "$(date) Dev Nodes: Created server $new_server_name."                                
                 fi
+                ((count++))
+                if (( sequence == required_servers )); then
+                                break
+                fi                
         done
 }
 
@@ -335,7 +370,7 @@ remove_servers() {
 
         while true; do
 
-                active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name" | sed ':a;N;$!ba;s/\n/ /g')
+                active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
                 servers=($active_servers)
 
                 random_index=$((RANDOM % ${#servers[@]}))
