@@ -338,9 +338,6 @@ remove_servers() {
 
 
         while true; do
-                if (( $sequence > $remove_count )); then
-                                break
-                fi
 
                 random_index=$((RANDOM % ${#servers[@]}))
                 server_to_remove=${servers[random_index]}
@@ -349,6 +346,10 @@ remove_servers() {
                 echo "$(date) Dev Servers: Deleted $server_to_remove server"
 
                 ((sequence++))
+                
+                if (( $sequence > $remove_count )); then
+                                break
+                fi
         done
 }
 
@@ -369,6 +370,11 @@ exists_in_list() {
 ##########          GENERATING CONFIG FILES          #############################
 
 generate_sshfile() {
+
+        if [[ -f "$sshconfig" ]] ; then
+                        rm "$sshconfig"
+        fi
+
         active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
 
         echo "Host $bastion_server" >> $sshconfig
@@ -417,6 +423,11 @@ generate_sshfile() {
 }
 
 generate_hostsfile() {
+
+        if [[ -f "$hostsfile" ]] ; then
+                        rm "$hostsfile"
+        fi
+
         active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
 
         # generate hosts file
@@ -482,7 +493,9 @@ echo "$(date) Dev Servers: Servers' Count: $servers_count"
 if (( required_servers > servers_count )); then
 
                 echo "$(date) Dev Servers: Creating Servers"
-                build_servers "$required_servers" "$server_name"
+                add_count=$(( required_servers - servers_count ))
+                build_servers "$add_count" "$server_name"
+
                 echo ""
 
                 if [[ -f "$sshconfig" ]] ; then
