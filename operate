@@ -28,6 +28,8 @@ hostsfile="hosts"
 vport_file="vipaddr"
 
 status_new=false
+status_servers=false
+past_servers=""
 
 #########           CONFIGURING SERVERS             ######################
 
@@ -45,7 +47,8 @@ build_bastion() {
                                         if [ "$server_status" == "ACTIVE" ]; then
                                                         break
                                         fi
-                        done                        
+                        done
+                        status_servers=true                        
                         echo "$(date) Bastion: Created server $bastion_server."
         fi
 
@@ -92,6 +95,7 @@ build_HAproxy() {
                         done  
                         echo "$(date) HAproxy: Created server $haproxy_server1"
                         status_new=true
+                        status_servers=true 
         fi
 
         existing_haproxy2=$(openstack server list --status ACTIVE --column Name -f value | grep "^$haproxy_server2$") #get exact match in search
@@ -107,6 +111,7 @@ build_HAproxy() {
                         done  
                         echo "$(date) HAproxy: Created server $haproxy_server2."
                         status_new=true
+                        status_servers=true 
         fi      
 }
 
@@ -227,7 +232,7 @@ build_servers() {
         local up_servers=($active_servers)
         local up_count=${#up_servers[@]}
 
-        local sequence=1
+        local sequence=$up_count
         local count=1
 
         echo "$(date) Dev Servers:req: $required_servers"
@@ -242,9 +247,6 @@ build_servers() {
 
         
         while true; do
-                if (( sequence > required_servers )); then
-                                break
-                fi
 
                 new_server_name="${server_name}${count}"
                 
@@ -254,7 +256,6 @@ build_servers() {
                                 # if the new server exist in active servers 
                                 if exists_in_list "${up_servers[@]}" " " "$new_server_name"; then
                                                 echo "$(date) Dev Servers: Existing active server $new_server_name."
-                                                ((sequence++))
                                 else
                                                 echo "$(date) Dev Servers: INACTIVE server $new_server_name."
                                 fi
@@ -269,7 +270,11 @@ build_servers() {
                                 ((sequence++))
                                 echo "$(date) Dev Servers: Created server $new_server_name."                                
                 fi
-                ((count++))                
+                ((count++))
+
+                if (( sequence == required_servers )); then
+                                break
+                fi                
         done
 }
 
@@ -281,10 +286,7 @@ remove_servers() {
 
 
         while true; do
-                if (( $sequence > $remove_count )); then
-                                break
-                fi
-
+        
                 random_index=$((RANDOM % ${#servers[@]}))
                 server_to_remove=${servers[random_index]}
 
@@ -292,6 +294,9 @@ remove_servers() {
                 echo "$(date) Dev Servers: Deleted $server_to_remove server"
 
                 ((sequence++))
+                if (( $sequence > $remove_count )); then
+                                break
+                fi
         done
 }
 
@@ -312,6 +317,11 @@ exists_in_list() {
 ##########          GENERATING CONFIG FILES          #############################
 
 generate_sshfile() {
+
+        if [[ -f "$sshconfig" ]] ; then
+                        rm "$sshconfig"
+        fi
+
         active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
 
         echo "Host $bastion_server" >> $sshconfig
@@ -356,10 +366,15 @@ generate_sshfile() {
                 echo "   ProxyJump $bastion_server" >> $sshconfig
         done
 
-        echo "$(date) Dev Servers: Generated config file"
+        echo "$(date) Config Files: Generated config file"
 }
 
 generate_hostsfile() {
+
+        if [[ -f "$hostsfile" ]] ; then
+                        rm "$hostsfile"
+        fi
+
         active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
 
         # generate hosts file
@@ -391,13 +406,38 @@ generate_hostsfile() {
         echo "ansible_ssh_private_key_file=$pvtkey_path" >> $hostsfile
         echo "ansible_ssh_common_args=' -F $sshconfig '" >> $hostsfile
 
-        echo "$(date) Dev Servers: Generated Host file"
+        echo "$(date) Config Files: Generated Host file"
 }
 
 #  Running Playbook
 run_ansible() {         
-        echo "$(date) Running ansible playbook"
+        echo "$(date) Running ansible playbook..."
         ansible-playbook -i "$hostsfile" site.yaml
+}
+
+
+# Check changes in active servers to config.
+check_config() {
+
+        local present_servers=("$1")
+        local past_servers=("$2")
+        
+        local count=0
+
+        if [[ -n "$past_servers" ]] || [[ -n "$present_servers" ]] ; then
+
+                for item in ${present_servers[@]}; do
+                        if ! exists_in_list "${past_servers[@]}" " " "$item"; then
+                                    ((count++))
+                        else
+                                    true
+                        fi
+                done
+        else
+                ((count++))
+        fi
+
+        echo "$count"
 }
 
 ############################################################################################
@@ -406,7 +446,7 @@ run_ansible() {
 #########       MAIN SCRIPT          #######################
 
 while true; do
-        echo "$(date) Running Operation mode with tag:$tag ....."
+        echo "$(date) Running Operation mode with tag:$tag ..."
 
         build_bastion
         build_HAproxy
@@ -426,59 +466,71 @@ while true; do
         servers_count=${#servers_list[@]}
         echo "$(date) Dev Servers: Active Servers: $servers_count::${servers_list[@]}"
 
+        present_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$tag")
+        pr_servers=($present_servers)
+        n_present="${#pr_servers[@]}"
+        echo "$(date) n present : $n_present"
+
         if (( required_servers > servers_count )); then
 
                         echo "$(date) Dev Servers: Creating Servers"
                         build_servers "$required_servers" "$server_name"
 
-                        echo ""
+                        echo "$(date) Dev Servers: Created required servers"
 
-                        if [[ -f "$sshconfig" ]] ; then
-                                        rm "$sshconfig"
-                        fi
                         generate_sshfile
-
-                        if [[ -f "$hostsfile" ]] ; then
-                                        rm "$hostsfile"
-                        fi       
                         generate_hostsfile
 
-                        echo ""
+                        echo "$(date) Config Files: Generated"
 
-                        echo "$(date) Dev Servers: Created required servers"
-                        
-                        sleep 10        
+                        sleep 10
                         run_ansible
 
         elif (( required_servers < servers_count )); then
 
                         echo "$(date) Dev Servers: Removing Servers"
-                        remove_count=$((servers_count - required_servers))
+                        remove_count=$(( servers_count - required_servers ))
                         remove_servers "$remove_count" "${servers_list[@]}"
 
-                        if [[ -f "$sshconfig" ]] ; then
-                                        rm "$sshconfig"
-                        fi
-                        generate_sshfile
+                        echo "$(date) Dev Servers: Created required servers"  
 
-                        if [[ -f "$hostsfile" ]] ; then
-                                        rm "$hostsfile"
-                        fi       
+                        generate_sshfile
                         generate_hostsfile
 
-                        echo "$(date) Dev Servers: Created required servers"
+                        echo "$(date) Config Files: Generated"
 
-                        sleep 10        
-                        run_ansible                
+                        sleep 10
+                        run_ansible
         else
-                        echo "$(date) Required number of dev servers ($required_servers) already exist."
+                        echo "$(date) Dev Servers: Required number of dev servers ($required_servers) already exist."
+
+                        #####            CONFIG FILE and ANSIBLE          #################
+
+                        # Capture the count and messages from the function
+                        no_match=$(check_config "${present_servers[@]}" "${past_servers[@]}")
+                        echo "$(date) unmatch: $no_match"
+
+                        if (( no_match > 0 || status_servers == true )); then
+
+                                        generate_sshfile
+                                        generate_hostsfile
+
+                                        echo "$(date) Config Files: Generated"
+
+                                        run_ansible
+                                        status_servers=false
+                        else
+                                true
+                        fi
         fi
+
+        past_servers=$present_servers
+
+############################################################################
 
         #  Obtaining Floating IPs
         echo "$(date) Bastion Floating IP address: $bastion_fip"
         echo "$(date) HAproxy Floating IP address: $haproxy_fip"
-
-        ############################################################################
 
         echo "$(date) Operation Completed"
         echo ""
