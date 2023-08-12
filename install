@@ -460,6 +460,12 @@ generate_hostsfile() {
         echo "$(date) Hosts Files: Generated"
 }
 
+#  Running Playbook
+run_ansible() {         
+        echo "$(date) Running ansible playbook ..."
+        ansible-playbook -i "$hostsfile" site.yaml
+}
+
 ############################################################################################
 
 
@@ -495,12 +501,6 @@ if (( required_servers > servers_count )); then
                 build_servers "$required_servers" "$server_name"
                 echo "$(date) Dev Nodes: Created $required_servers Nodes"
 
-                generate_sshfile
-                generate_hostsfile
-
-                sleep 20
-                run_ansible
-
 elif (( required_servers < servers_count )); then
 
                 echo "$(date) Dev Nodes: Removing Nodes"
@@ -510,12 +510,6 @@ elif (( required_servers < servers_count )); then
 
                 remove_servers "$remove_count" "${servers_list[@]}"
                 echo "$(date) Dev Nodes: Removed $remove_count Nodes"  
-
-                generate_sshfile
-                generate_hostsfile
-
-                sleep 20
-                run_ansible
 else
                 echo "$(date) Dev Nodes: Required number of dev nodes ($required_servers) already exist."
 fi
@@ -526,11 +520,13 @@ echo "$(date) HAproxy Floating IP address: $haproxy_fip"
 
 ############################################################################
 
+generate_sshfile
+generate_hostsfile
+
 sleep 30
 
 #  Running Playbook 
-echo "$(date) Running ansible-playbook ..."
-ansible-playbook -i "$hostsfile" site.yaml
+run_ansible
 
 #  Obtaining Floating IPs
 echo "$(date) Bastion Floating IP address: $bastion_fip"
