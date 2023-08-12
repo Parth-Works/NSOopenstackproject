@@ -27,6 +27,7 @@ sshconfig="config"
 hostsfile="hosts"
 vport_file="vipaddr"
 
+run=0
 status_new=false # checks if new Haproxys and vport created
 status_servers=false # checks if new servers created (not new nodes)
 past_servers=""
@@ -247,6 +248,12 @@ build_servers() {
         while true; do
 
                 new_server_name="${server_name}${count}"
+
+                list_servers=$(openstack server list -c Name -f value | grep "$server_name")
+                active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name")
+
+                servers=($list_servers)
+                up_servers=($active_servers)
                 
                 # if the new server exist in servers list
                 if exists_in_list "${servers[@]}" " " "$new_server_name"; then
@@ -269,7 +276,6 @@ build_servers() {
                                 echo "$(date) Dev Nodes: Created server $new_server_name."                                
                 fi
                 ((count++))
-
                 if (( sequence == required_servers )); then
                                 break
                 fi                
@@ -279,11 +285,13 @@ build_servers() {
 remove_servers() {
 
         local remove_count=$1
-        local servers=("${@:2:$#}")
+        local servers=""
         local sequence=0
 
-
         while true; do
+
+                active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name" | sed ':a;N;$!ba;s/\n/ /g')
+                servers=($active_servers)
 
                 random_index=$((RANDOM % ${#servers[@]}))
                 server_to_remove=${servers[random_index]}
@@ -424,15 +432,15 @@ check_config() {
 
         if [[ -n "$past_servers" ]] || [[ -n "$present_servers" ]] ; then
 
-                for item in ${present_servers[@]}; do
-                        if ! exists_in_list "${past_servers[@]}" " " "$item"; then
-                                    ((count++))
-                        else
-                                    true
-                        fi
-                done
+                        for item in ${present_servers[@]}; do
+                                if ! exists_in_list "${past_servers[@]}" " " "$item"; then
+                                                ((count++))
+                                else
+                                                true
+                                fi
+                        done
         else
-                ((count++))
+                        ((count++))
         fi
 
         echo "$count"
@@ -444,6 +452,7 @@ check_config() {
 #########       MAIN SCRIPT          #######################
 
 while true; do
+
         echo "$(date) Running Operation mode with tag:$tag ..."
 
         build_bastion
@@ -486,7 +495,7 @@ while true; do
                         remove_count=$(( servers_count - required_servers ))
                         echo "$(date) Dev Nodes: Removing $remove_count Nodes"
 
-                        remove_servers "$remove_count" "${servers_list[@]}"
+                        remove_servers "$remove_count"
                         echo "$(date) Dev Nodes: Removed $remove_count Nodes"  
 
                         generate_sshfile
@@ -506,23 +515,32 @@ while true; do
 
                         # Capture the count and messages from the function
                         no_match=$(check_config "${present_servers[@]}" "${past_servers[@]}")
-                        echo "$(date) Servers: Change in servers: $no_match"
+                        echo "$(date) Servers: Change in servers: $no_match"                        
+                        echo "$(date) Servers: status=$status_servers"
 
-                        if (( no_match > 0 || status_servers == true )); then
+                        if [[ $no_match -gt 0 || $status_servers == true ]]; then
 
-                                        generate_sshfile
-                                        generate_hostsfile
+                                        # run config except the initial run
+                                        if [[ $run -ne 0 ]]; then
 
-                                        sleep 20
-                                        run_ansible
+                                                        generate_sshfile
+                                                        generate_hostsfile
+
+                                                        sleep 20
+                                                        run_ansible
+                                        else
+                                                        true
+                                        fi
 
                                         status_servers=false
                         else
-                                true
+                                        true
                         fi
         fi
 
         past_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$tag")
+
+        ((run++)) # increment run for while loop
         
 
 ############################################################################
