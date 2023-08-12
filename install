@@ -301,19 +301,16 @@ create_fip() {
 #########           DEV Nodes SETUP             ###################
 build_servers() {
 
-        local list_arguments=("$@")
-
-        local required_servers=${list_arguments[0]}
-        local server_name="${list_arguments[1]}"
-        local servers=()
-
-        for (( i = 2; i < ${#list_arguments[@]}; i++ )) ; do
-                servers+=("${list_arguments[i]}")
-        done
+        local required_servers=$1
+        local server_name="$2"
+        local servers=""
 
         for (( sequence = 1; sequence <= required_servers; sequence++ )); do
                 new_server_name="${server_name}${sequence}"
                 #echo "$(date) $new_server_name"
+
+                active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name" | sed ':a;N;$!ba;s/\n/ /g')
+                servers=(active_servers)
                 
                 if ! exists_in_list "${servers[@]}" " " "$new_server_name"; then            
                                 server_output=$(openstack server create --image "Ubuntu 20.04 Focal Fossa x86_64"  $new_server_name --key-name "$name_of_the_keypair" --flavor "1C-2GB-50GB" --network $name_of_the_network --security-group $name_of_the_securitygroup)
@@ -333,10 +330,13 @@ build_servers() {
 remove_servers() {
 
         local remove_count=$1
-        local servers=("${@:2:$#}")
+        local servers=""
         local sequence=0
 
         while true; do
+
+                active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name" | sed ':a;N;$!ba;s/\n/ /g')
+                servers=($active_servers)
 
                 random_index=$((RANDOM % ${#servers[@]}))
                 server_to_remove=${servers[random_index]}
@@ -508,7 +508,7 @@ elif (( required_servers < servers_count )); then
                 remove_count=$(( servers_count - required_servers ))
                 echo "$(date) Dev Nodes: Removing $remove_count Nodes"
 
-                remove_servers "$remove_count" "${servers_list[@]}"
+                remove_servers "$remove_count"
                 echo "$(date) Dev Nodes: Removed $remove_count Nodes"  
 else
                 echo "$(date) Dev Nodes: Required number of dev nodes ($required_servers) already exist."
