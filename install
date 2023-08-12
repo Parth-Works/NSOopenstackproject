@@ -529,7 +529,7 @@ echo "$(date) HAproxy Floating IP address: $haproxy_fip"
 sleep 30
 
 #  Running Playbook 
-echo "$(date) Running ansible-playbook"
+echo "$(date) Running ansible-playbook ..."
 ansible-playbook -i "$hostsfile" site.yaml
 
 #  Obtaining Floating IPs
