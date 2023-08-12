@@ -27,8 +27,8 @@ sshconfig="config"
 hostsfile="hosts"
 vport_file="vipaddr"
 
-status_new=false
-status_servers=false
+status_new=false # checks if new Haproxys and vport created
+status_servers=false # checks if new servers created (not new nodes)
 past_servers=""
 
 #########           CONFIGURING SERVERS             ######################
@@ -217,7 +217,7 @@ create_fip() {
         echo "$floating_ip"
 }
 
-#########           DEV SERVERS SETUP             ###################
+#########           DEV Nodes SETUP             ###################
 build_servers() {
 
         local required_servers=$1
@@ -234,15 +234,13 @@ build_servers() {
 
         local sequence=$up_count
         local count=1
-
-        echo "$(date) Dev Servers:req: $required_servers"
         
         for item in ${servers[@]}; do
-                echo "$(date) Dev Servers: LIST  :$list_count::$item"
+                echo "$(date) Dev Nodes: LIST   :$list_count::$item"
         done
 
         for item in ${up_servers[@]}; do
-                echo "$(date) Dev Servers: ACTIVE:$up_count::$item"
+                echo "$(date) Dev Nodes: ACTIVE :$up_count::$item"
         done
 
         
@@ -255,9 +253,9 @@ build_servers() {
 
                                 # if the new server exist in active servers 
                                 if exists_in_list "${up_servers[@]}" " " "$new_server_name"; then
-                                                echo "$(date) Dev Servers: Existing active server $new_server_name."
+                                                echo "$(date) Dev Nodes: Existing active server $new_server_name."
                                 else
-                                                echo "$(date) Dev Servers: INACTIVE server $new_server_name."
+                                                echo "$(date) Dev Nodes: INACTIVE server $new_server_name."
                                 fi
                 else
                                 server_output=$(openstack server create --image "Ubuntu 20.04 Focal Fossa x86_64"  $new_server_name --key-name "$name_of_the_keypair" --flavor "1C-2GB-50GB" --network $name_of_the_network --security-group $name_of_the_securitygroup)
@@ -268,7 +266,7 @@ build_servers() {
                                         fi
                                 done
                                 ((sequence++))
-                                echo "$(date) Dev Servers: Created server $new_server_name."                                
+                                echo "$(date) Dev Nodes: Created server $new_server_name."                                
                 fi
                 ((count++))
 
@@ -282,19 +280,19 @@ remove_servers() {
 
         local remove_count=$1
         local servers=("${@:2:$#}")
-        local sequence=1
+        local sequence=0
 
 
         while true; do
-        
+
                 random_index=$((RANDOM % ${#servers[@]}))
                 server_to_remove=${servers[random_index]}
 
                 deleted_server=$(openstack server delete "$server_to_remove" --wait)
-                echo "$(date) Dev Servers: Deleted $server_to_remove server"
+                echo "$(date) Dev Nodes: Deleted $server_to_remove server"
 
                 ((sequence++))
-                if (( $sequence > $remove_count )); then
+                if (( $sequence == $remove_count )); then
                                 break
                 fi
         done
@@ -366,7 +364,7 @@ generate_sshfile() {
                 echo "   ProxyJump $bastion_server" >> $sshconfig
         done
 
-        echo "$(date) Config Files: Generated config file"
+        echo "$(date) Config Files: Generated"
 }
 
 generate_hostsfile() {
@@ -406,7 +404,7 @@ generate_hostsfile() {
         echo "ansible_ssh_private_key_file=$pvtkey_path" >> $hostsfile
         echo "ansible_ssh_common_args=' -F $sshconfig '" >> $hostsfile
 
-        echo "$(date) Config Files: Generated Host file"
+        echo "$(date) Hosts Files: Generated"
 }
 
 #  Running Playbook
@@ -453,7 +451,7 @@ while true; do
         config_vport
 
         required_servers=$(cat servers.conf)
-        echo "$(date) Dev Servers: Nodes required $required_servers"
+        echo "$(date) Dev Nodes: Nodes required $required_servers"
 
         # Get the list from the file
         active_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$server_name" | sed ':a;N;$!ba;s/\n/ /g')
@@ -464,67 +462,68 @@ while true; do
         read -ra servers_list <<< "$active_servers"      
 
         servers_count=${#servers_list[@]}
-        echo "$(date) Dev Servers: Active Servers: $servers_count::${servers_list[@]}"
-
-        present_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$tag")
-        pr_servers=($present_servers)
-        n_present="${#pr_servers[@]}"
-        echo "$(date) n present : $n_present"
+        echo "$(date) Dev Nodes: Active Servers: $servers_count::${servers_list[@]}"
 
         if (( required_servers > servers_count )); then
 
-                        echo "$(date) Dev Servers: Creating Servers"
-                        build_servers "$required_servers" "$server_name"
+                        echo "$(date) Dev Nodes: Creating Nodes"
 
-                        echo "$(date) Dev Servers: Created required servers"
+                        build_servers "$required_servers" "$server_name"
+                        echo "$(date) Dev Nodes: Created required $required_servers Nodes"
 
                         generate_sshfile
                         generate_hostsfile
 
-                        echo "$(date) Config Files: Generated"
-
-                        sleep 10
+                        sleep 20
                         run_ansible
+
+                        status_servers=false
 
         elif (( required_servers < servers_count )); then
 
-                        echo "$(date) Dev Servers: Removing Servers"
-                        remove_count=$(( servers_count - required_servers ))
-                        remove_servers "$remove_count" "${servers_list[@]}"
+                        echo "$(date) Dev Nodes: Removing Nodes"
 
-                        echo "$(date) Dev Servers: Created required servers"  
+                        remove_count=$(( servers_count - required_servers ))
+                        echo "$(date) Dev Nodes: Removing $remove_count Nodes"
+
+                        remove_servers "$remove_count" "${servers_list[@]}"
+                        echo "$(date) Dev Nodes: Removed $remove_count Nodes"  
 
                         generate_sshfile
                         generate_hostsfile
 
-                        echo "$(date) Config Files: Generated"
-
-                        sleep 10
+                        sleep 20
                         run_ansible
+
+                        status_servers=false
         else
-                        echo "$(date) Dev Servers: Required number of dev servers ($required_servers) already exist."
+                        echo "$(date) Dev Nodes: Required number of dev nodes ($required_servers) already exist."
 
                         #####            CONFIG FILE and ANSIBLE          #################
 
+                        present_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$tag")
+                        pr_servers=($present_servers)
+
                         # Capture the count and messages from the function
                         no_match=$(check_config "${present_servers[@]}" "${past_servers[@]}")
-                        echo "$(date) unmatch: $no_match"
+                        echo "$(date) Servers: Change in servers: $no_match"
 
                         if (( no_match > 0 || status_servers == true )); then
 
                                         generate_sshfile
                                         generate_hostsfile
 
-                                        echo "$(date) Config Files: Generated"
-
+                                        sleep 20
                                         run_ansible
+
                                         status_servers=false
                         else
                                 true
                         fi
         fi
 
-        past_servers=$present_servers
+        past_servers=$(openstack server list --status ACTIVE -f value -c Name | grep "$tag")
+        
 
 ############################################################################
 
