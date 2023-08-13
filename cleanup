@@ -4,7 +4,7 @@ rc_file=$1
 tag="$2"
 publickey=$3
 
-required_servers=
+required_servers=$(cat servers.conf)
 
 pvtkey="${publickey%.pub}"
 pvtkey_path="${pvtkey}"
