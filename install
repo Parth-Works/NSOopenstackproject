@@ -7,8 +7,7 @@ publickey=$3
 required_servers=3
 
 pvtkey="${publickey%.pub}"
-current_dir="$(pwd)"
-pvtkey_path="${current_dir}/${pvtkey}"
+pvtkey_path="${pvtkey}"
 
 echo "$current_date_time Starting deployment with tag:$tag using $rc_file credentials."
 source $rc_file
