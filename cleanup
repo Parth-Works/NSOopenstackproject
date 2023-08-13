@@ -238,6 +238,7 @@ del_fip_files() {
 ########                MAIN SCRIPT                       ######
 
 detach_floating_IPs
+del_floatingIPs
 del_vport
 del_servers
 del_network
