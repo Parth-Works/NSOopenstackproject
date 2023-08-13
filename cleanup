@@ -4,9 +4,10 @@ rc_file=$1
 tag="$2"
 publickey=$3
 
-required_servers=3
+required_servers=
 
 pvtkey="${publickey%.pub}"
+pvtkey_path="${pvtkey}"
 
 echo "$current_date_time Starting CleanUp with tag:$tag using $rc_file for credentials."
 source $rc_file
