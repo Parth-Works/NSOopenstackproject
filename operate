@@ -415,7 +415,9 @@ generate_hostsfile() {
 }
 
 #  Running Playbook
-run_ansible() {         
+run_ansible() {
+        pkill -f 'ansible'
+	#timeout 60 ansible --ssh-common-args "-F "$sshconfig" -i hosts -m ping | grep "UNREACHABLE" 
         echo "$(date) Running ansible playbook..."
         ansible-playbook -i "$hostsfile" site.yaml
 }
