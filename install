@@ -495,7 +495,8 @@ generate_hostsfile() {
 }
 
 #  Running Playbook
-run_ansible() {         
+run_ansible() {  
+        pkill -f 'ansible'       
         echo "$(date) Running ansible playbook ..."
         ansible-playbook -i "$hostsfile" site.yaml
 }
